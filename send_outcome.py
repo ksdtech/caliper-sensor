@@ -17,25 +17,10 @@ sensor = caliper.build_sensor_from_config(
     sensor_id=builder.sensor_id(1),
     config_options=config)
 
-# Here, you will have caliper entity representations of the various
-# learning objects and entities in your wider system, and you provide
-# them into the constructor for the event that has just happened.
-#
-# Note that you don't have to pass an action into the constructor because
-# the NavigationEvent only supports one action, part of the
-# Caliper base profile: caliper.profiles.CaliperProfile.Actions['NAVIGATED_TO']
-#
 
-# Example Assessment Sequence - 5.3
-#
-# Actors:
-#  Student
-#  LMS
-#  Assessment EduApp
-#  Grading Engine or Teacher
-#
+# Some "pre-build" entities for our imaginary school:
+# course, section, assessment, and assessment_item.
 
-# Course, section, assessment, assessment_item, section_group
 section = Section('Math 7', '104', '7177', '4', '1617', 'FY')
 course_entity = builder.build_course(section)
 section_entity = builder.build_section(course_entity, section.section_number)
@@ -61,30 +46,44 @@ assessment_entity = builder.build_assessment(section_entity, assessment)
 item = AssessmentItem('44001.1', 'Washington Quiz Question 1', 2, 2, 10.0)
 assessment_item_entity = builder.build_assessment_item(assessment_entity, item)
 
-# Student actor
+
+# Student actor.  Actors could be any of these:
+#    Student
+#    LMS
+#    Assessment edApp
+#    Grading Engine (in an edApp)
+#    Teacher
+
 student_id = '123456'
 ssid = '10736344450'
 student_actor = builder.build_student(student_id, ssid)
 
+
 # Section group (for learning context)
+
 group_id = '1'
 group_name = 'All Students'
 section_group_entity = builder.build_section_group(section_entity, group_id, group_name)
 
+
 # Section enrollment (for learning context)
+
 section_enrollment_entity = builder.build_section_enrollment(section_entity, student_actor)
 
-# Event sequence:
-# 1. The student navigates to an assessment that was assigned in the LMS using
-#    the LMS Assessment Tool. Sensor generates an navigatedEvent with the
-#    action of navigated to.
+# Session (for learning context)
 
 federated_session_entity = builder.build_federated_session(student_actor, '4585130')
+
+
+# The learning context, including the edApp (learning tool)
+
 tool_id = 'https://successnet.pearson.com'
 tool_name = 'Pearson SuccessNet'
-
 learning_context = builder.build_learning_context(section_group_entity,
     section_enrollment_entity, federated_session_entity, tool_id, tool_name)
+
+
+# Where our student actor started and navigated to to begin the assignment
 
 course_page_url = 'https://www.kentfieldschools.org/kent/classes/math7/index.html'
 course_page_title = 'Welcome to Math 7'
@@ -93,13 +92,19 @@ course_landing_page = builder.build_course_landing_page(course_page_url, course_
 navigation_resource = builder.build_epub_vol43()
 navigation_target   = builder.build_epub_subchap431()
 
+
+# Example Assessment Sequence - 5.3 -------------------------------------------
+#
+# 1. The student navigates to an assessment that was assigned in the LMS using
+#    the LMS Assessment Tool. Sensor generates a NavigationEvent with the
+#    CaliperProfile action 'NAVIGATED_TO'.
+
 event = events.NavigationEvent(
     edApp = learning_context.edApp,
     group = learning_context.group,
     membership = learning_context.membership,
     actor = student_actor,
     event_object = navigation_resource,
-    # action is set in NavigationEvent constructor
     generated = None,
     navigatedFrom = course_landing_page,
     target = navigation_target,
@@ -109,13 +114,7 @@ sensor.send(event)
 
 
 # 2. The student starts the assignment in the LMS Sensor sends AssignableEvent
-#    with the action of started and generates an attempt Object.
-#
-# Generated Attempt properties
-#    count
-#    startedAtTime
-#    endedAtTime
-#    duration
+#    with the AssignableProfile action 'STARTED' and generates an Attempt object.
 
 assessment_attempt_id = '1'
 assessment_attempt_entity = builder.build_assessment_attempt(
@@ -133,8 +132,9 @@ event = events.AssignableEvent(
 sensor.send(event)
 
 
-# 3. The student starts the assessment in the Assessment EduApp. Sensor sends
-#    AssessmentEvent with the action of started.
+# 3. The student starts the assessment in the Assessment edApp. Sensor sends
+#    AssessmentEvent with the AssessmentProfile action 'STARTED'.
+
 event = events.AssessmentEvent(
     edApp = learning_context.edApp,
     group = learning_context.group,
@@ -147,8 +147,10 @@ event = events.AssessmentEvent(
 sensor.send(event)
 
 
-# 4. The student starts question 1 in the assessment in the Assessment EduApp.
-#    Sensor sends AssessmentItemEvent with the assessmentItem action of started.
+# 4. The student starts question 1 in the assessment in the Assessment edApp.
+#    Sensor sends AssessmentItemEvent with the AssessmentItemProfile action
+#    'STARTED'.
+
 item_attempt_id = '11'
 item_attempt_entity = builder.build_assessment_item_attempt(
     assessment_item_entity, student_actor, item_attempt_id, 1)
@@ -167,13 +169,7 @@ sensor.send(event)
 
 
 # 5. The student completes question 1. Sensor sends AssessmentItemEvent with
-#    the assessmentItem action of completed.
-#
-# Generated Response properties
-#    startedAtTime
-#    values
-#    endedAtTime
-#    duration
+#    the AssessmentItemProfile action 'COMPLETED'.
 
 item_attempt_entity.endedAtTime = builder.now()
 item_attempt_entity.duration = builder.duration(
@@ -202,8 +198,11 @@ sensor.send(event)
 
 
 # 6. Steps 4-5 repeat for each question in the assignment.
-# 7. Student submits the assessment in the Assessment EduApp.
-#    Sensor send an AssessmentEvent with the action of submitted.
+#
+# 7. Student submits the assessment in the Assessment edApp.
+#    Sensor sends an AssessmentEvent with the AssessmentProfile action
+#    'SUBMITTED'.
+
 assessment_attempt_entity.endedAtTime = builder.now()
 assessment_attempt_entity.duration = builder.duration(
     assessment_attempt_entity.startedAtTime,
@@ -221,9 +220,10 @@ event = events.AssessmentEvent(
 sensor.send(event)
 
 
-# 8. Assessment autograded by grading engine.
-#    Sensor generates an OutcomeEvent with the action of graded, ncluding the
-#    attempt – result pairing.
+# 8. Assessment autograded by grading engine (edApp from the LearningContext).
+#    Sensor generates an OutcomeEvent with the OutcomeProfile action 'GRADED',
+#    and includes the attempt – result pairing.
+
 result = AssessmentResult('Good job', 95.0)
 result_entity = builder.build_assessment_result(
     assessment_attempt_entity,

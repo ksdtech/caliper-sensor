@@ -4,7 +4,7 @@ Test project to imagine a "sensor" that would work with our school district's
 PowerSchool SIS and place assessment data into a searchable warehouse.
 
 This example was built in Python 3 with IMS Global's
-[Python Caliper Analytics™ sensor library](https://github.com/IMSGlobal/caliper-python-public)
+[Python Caliper Analytics™ sensor library](https://github.com/IMSGlobal/caliper-python-public).
 
 The sample script, `send_outcome.py` tries to emulate the "Example Assessment Sequence"
 described in the
