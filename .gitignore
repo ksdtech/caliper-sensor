@@ -1,0 +1,8 @@
+*.pyc
+.tox
+build
+dist
+*.egg-info*
+# remove when common repo is up-to-date and jenkins fixed to grab fixtures from elsewhere
+# src/caliper_tests/fixtures
+caliper_tests/fixtures_out
